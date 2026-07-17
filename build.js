@@ -291,6 +291,7 @@ function copyStaticFiles() {
         'app.js',
         'sw.js',
         'wsf.webp',
+        'wsf.jpg',
         'search.html',
         'jianjie.html'
     ];
