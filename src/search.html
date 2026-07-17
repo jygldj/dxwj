@@ -162,8 +162,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
         const resp = await fetch('articles-index.json?' + Date.now());
         articlesIndex = await resp.json();
-        document.getElementById('welcomeMsg').textContent =
-            '共 ' + articlesIndex.length + ' 篇文章，输入关键词搜索全部内容';
+
+        // 计算分类统计
+        const stats = { '诗': 0, '词': 0, '散文': 0, '其它': 0 };
+        for (const a of articlesIndex) {
+            if (stats.hasOwnProperty(a.category)) stats[a.category]++;
+            else stats['其它']++;
+        }
+        document.getElementById('welcomeMsg').innerHTML =
+            '共 ' + articlesIndex.length + ' 篇文章<br>' +
+            '诗 ' + stats['诗'] + ' 篇 · 词 ' + stats['词'] + ' 篇 · 散文 ' + stats['散文'] + ' 篇 · 其他 ' + stats['其它'] + ' 篇';
         // 支持从 URL 参数 ?q=xxx 直接搜索
         const params = new URLSearchParams(window.location.search);
         const q = params.get('q');
@@ -171,6 +179,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('searchInput').value = q;
             doSearch();
         }
+
+        // 回车键触发搜索
+        document.getElementById('searchInput').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                doSearch();
+            }
+        });
     } catch (e) {
         document.getElementById('welcomeMsg').textContent = '⚠️ 文章索引加载失败：' + e.message;
     }

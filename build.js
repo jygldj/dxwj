@@ -320,6 +320,18 @@ function copyStaticFiles() {
     }
   }
 
+  // 复制图片文件夹（如果存在）
+  const imgSrcDir = path.join(SRC_DIR, '../images');
+  const imgDstDir = path.join(DIST_DIR, 'images');
+  if (fs.existsSync(imgSrcDir)) {
+    if (!fs.existsSync(imgDstDir)) fs.mkdirSync(imgDstDir, { recursive: true });
+    const imgFiles = fs.readdirSync(imgSrcDir).filter(f => /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(f));
+    for (const img of imgFiles) {
+      fs.copyFileSync(path.join(imgSrcDir, img), path.join(imgDstDir, img));
+    }
+    if (imgFiles.length > 0) console.log(`   🖼️  已复制 ${imgFiles.length} 张图片`);
+  }
+
   console.log(`📋 已复制 ${copied} 个静态文件`);
 }
 
