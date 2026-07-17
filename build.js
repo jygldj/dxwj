@@ -283,14 +283,17 @@ function generateVolumeFiles(articles) {
 // 5. 复制静态文件到 dist/
 // ============================================================
 function copyStaticFiles() {
-  const filesToCopy = [
-    'index.html',
-    'index1.html',
-    'style.css',
-    'cover.css',
-    'app.js',
-    'sw.js'
-  ];
+    const filesToCopy = [
+        'index.html',
+        'index1.html',
+        'style.css',
+        'cover.css',
+        'app.js',
+        'sw.js',
+        'wsf.webp',
+        'search.html',
+        'jianjie.html'
+    ];
 
   let copied = 0;
   for (const file of filesToCopy) {
