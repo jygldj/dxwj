@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="道玄文集 - 古典诗词与散文杂记">
+    <meta property="og:title" content="道玄文集">
+    <meta property="og:description" content="古典诗词与散文杂记">
+    <meta property="og:type" content="website">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'   viewBox='0 0 100 100'><text y='.9em' font-size='90' fill='%235a3921'>📜</text></svg>">
+    <title>道玄文集</title>
+    <!-- 封面页只需 cover.css -->
+    <link rel="stylesheet" href="cover.css">
+<!-- 百度统计 -->
+<script async src="https://hm.baidu.com/hm.js?35b5524e050763995511f80570ae121c"></script>
+</head>
+<body>
+    <div class="book-cover" id="bookCover">
+        <div class="front-cover">
+            <!-- 作者照片 -->
+            <div class="author-portrait"></div>
+            
+            <!-- 进入文集按钮 -->
+            <button class="open-book" onclick="navigateWithAnimation()">进入文集</button>
+            
+            <!-- 友情链接区域 -->
+            <div class="links-section">
+                <div class="links-title">⎯⎯ 友情链接 ⎯⎯</div>
+                <div class="friend-links-grid">                  
+                    <a href="https://mp.weixin.qq.com/mp/appmsgalbum?__biz=Mzk0ODc1MzcxMg==&action=getalbum&album_id=4070727578921992197#wechat_redirect" target="_blank" rel="noopener noreferrer">道玄微信公众号</a>
+                    <a href="https://6948.kstore.space/ckn/feiye.html" target="_blank" rel="noopener noreferrer">三省轩主文集</a>
+                    <a href="https://6948.kstore.space/app/index.html" target="_blank" rel="noopener noreferrer">道玄TV软件</a>
+                    <a href="https://www.gushiwen.org/" target="_blank" rel="noopener noreferrer">古诗文网</a>
+                    <a href="https://www.zhonghuashu.com/" target="_blank" rel="noopener noreferrer">中华书库</a>
+                    <a href="#" target="_blank" rel="noopener noreferrer">诗词天地</a>
+                    <a href="#" target="_blank" rel="noopener noreferrer">国学经典</a>
+                    <a href="#" target="_blank" rel="noopener noreferrer">书画鉴赏</a>
+                    <a href="#" target="_blank" rel="noopener noreferrer">文房雅集</a>
+                    <a href="#" target="_blank" rel="noopener noreferrer">古典音乐</a>
+                </div>
+            </div>
+        </div>
+    </div>
+ 
+    <script>
+        // PWA支持
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js');
+        }
+        
+        // 翻页动画导航
+        function navigateWithAnimation() {
+            document.getElementById('bookCover').classList.add('opened');
+            setTimeout(() => {
+                window.location.href = "index1.html";
+            }, 800);
+        }
+    </script>
+</body>
+</html>
