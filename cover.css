@@ -58,12 +58,12 @@ body {
 
 .author-portrait {
     width: 200px;
-    height: 200px;
+    height: 250px;
     margin: 0 auto 1.5rem;
-    background: url('wsf.jpg') center/cover no-repeat;
-    border-radius: 50%;
+    background: url('wsf.jpg') center/cover;
+    border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
     box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-    border: 3px solid rgba(255,255,255,0.6);
+    clip-path: ellipse(45% 50% at 50% 50%);
 }
 
 .open-book {
@@ -146,7 +146,7 @@ body {
     
     .author-portrait {
         width: 240px;
-        height: 240px;
+        height: 300px;
         margin: 0 2rem 0 0;
     }
     
@@ -170,7 +170,7 @@ body {
 @media (min-width: 992px) {
     .author-portrait {
         width: 280px;
-        height: 280px;
+        height: 350px;
     }
     
     .links-section {
