@@ -302,19 +302,28 @@ function copyStaticFiles() {
     const destPath = path.join(DIST_DIR, file);
 
     if (fs.existsSync(srcPath)) {
-      const content = fs.readFileSync(srcPath, 'utf-8');
+      // 判断是否为二进制文件（图片）
+      const isBinary = /\.(jpg|jpeg|png|gif|webp|svg|ico|woff2?)$/i.test(file);
 
-      // 对 sw.js 特殊处理：注入构建时间和缓存版本号
-      let processed = content;
-      if (file === 'sw.js') {
-        const buildTime = new Date().toISOString();
-        const cacheVersion = `daoxuan-v${Math.floor(Date.now() / 1000)}`;
-        processed = content
-          .replace(/__BUILD_TIME__/g, buildTime)
-          .replace(/__CACHE_VERSION__/g, cacheVersion);
+      if (isBinary) {
+        // 二进制文件：用 copyFileSync 保留原始字节
+        fs.copyFileSync(srcPath, destPath);
+      } else {
+        // 文本文件：使用 utf-8 读取和写入
+        const content = fs.readFileSync(srcPath, 'utf-8');
+
+        // 对 sw.js 特殊处理：注入构建时间和缓存版本号
+        let processed = content;
+        if (file === 'sw.js') {
+          const buildTime = new Date().toISOString();
+          const cacheVersion = `daoxuan-v${Math.floor(Date.now() / 1000)}`;
+          processed = content
+            .replace(/__BUILD_TIME__/g, buildTime)
+            .replace(/__CACHE_VERSION__/g, cacheVersion);
+        }
+
+        fs.writeFileSync(destPath, processed, 'utf-8');
       }
-
-      fs.writeFileSync(destPath, processed, 'utf-8');
       copied++;
     } else {
       console.warn(`⚠️  警告：src/${file} 不存在，跳过`);
