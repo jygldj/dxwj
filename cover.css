@@ -60,7 +60,7 @@ body {
     width: 200px;
     height: 250px;
     margin: 0 auto 1.5rem;
-    background: url('wsf.webp') center/cover;
+    background: url('wsf.jpg') center/cover;
     border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
     box-shadow: 0 5px 15px rgba(0,0,0,0.2);
     clip-path: ellipse(45% 50% at 50% 50%);
