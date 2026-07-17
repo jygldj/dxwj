@@ -58,7 +58,7 @@ body {
 
 .author-portrait {
     width: 200px;
-    height: 250px;
+    height: 200px;
     margin: 0 auto 1.5rem;
     background: url('wsf.jpg') center/cover no-repeat;
     border-radius: 50%;
@@ -146,7 +146,7 @@ body {
     
     .author-portrait {
         width: 240px;
-        height: 300px;
+        height: 240px;
         margin: 0 2rem 0 0;
     }
     
@@ -170,7 +170,7 @@ body {
 @media (min-width: 992px) {
     .author-portrait {
         width: 280px;
-        height: 350px;
+        height: 280px;
     }
     
     .links-section {
