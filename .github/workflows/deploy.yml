@@ -27,23 +27,13 @@ jobs:
       - name: 检出代码
         uses: actions/checkout@v4
 
-      # 2. 安装 Node.js
+      # 2. 安装 Node.js（构建脚本仅用内置 fs/path，无需安装额外包）
       - name: 安装 Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
 
-      # 3. 安装依赖
-      - name: 安装依赖
-        run: npm ci --only=production
-        # --only=production 表示只安装生产依赖（marked 被列为 devDependencies）
-        # 但我们实际上需要它，所以改为：
-
-      - name: 安装构建依赖
-        run: npm install
-
-      # 4. 执行构建
+      # 3. 执行构建
       - name: 构建网站（解析 .md → 生成分片 JSON）
         run: node build.js
 
