@@ -2,11 +2,11 @@
  * 道玄文集 - Service Worker
  * ==========================
  * 功能：首次访问后缓存所有静态资源，后续访问秒开
- * 版本：daoxuan-v1784300634  （构建时自动替换）
- * 构建时间：2026-07-17T15:03:54.470Z
+ * 版本：daoxuan-v1784301590  （构建时自动替换）
+ * 构建时间：2026-07-17T15:19:50.236Z
  */
 
-const CACHE_NAME = 'daoxuan-v1784300634';
+const CACHE_NAME = 'daoxuan-v1784301590';
 const STATIC_ASSETS = [
     './',
     './index.html',
