@@ -1,0 +1,62 @@
+name: 构建并部署道玄文集
+
+# 触发条件：向 main 分支推送代码时（新增/修改 articles 中的 .md 文件）
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'articles/**'          # 文章更新时触发
+      - 'src/**'               # 页面源码更新时触发
+      - 'build.js'             # 构建脚本更新时触发
+      - 'package.json'         # 依赖更新时触发
+
+  # 也支持手动触发（在 GitHub 网页上点按钮）
+  workflow_dispatch:
+
+# 权限：允许将构建结果推送到 gh-pages 分支
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    name: 构建并部署
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. 拉取仓库代码
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      # 2. 安装 Node.js
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      # 3. 安装依赖
+      - name: 安装依赖
+        run: npm ci --only=production
+        # --only=production 表示只安装生产依赖（marked 被列为 devDependencies）
+        # 但我们实际上需要它，所以改为：
+
+      - name: 安装构建依赖
+        run: npm install
+
+      # 4. 执行构建
+      - name: 构建网站（解析 .md → 生成分片 JSON）
+        run: node build.js
+
+      # 5. 部署到 gh-pages 分支
+      - name: 部署到 GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+          publish_branch: gh-pages
+          # 保持历史记录，不清除旧文件
+          keep_files: false
+          # 提交信息
+          commit_message: "🔄 自动构建部署 #${{ github.run_number }}"
+          user_name: "道玄文集自动构建"
+          user_email: "daoxuan-bot@github.com"

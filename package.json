@@ -1,0 +1,12 @@
+{
+  "name": "daoxuan-works",
+  "version": "5.2.0",
+  "description": "道玄文集 - 自动构建工具",
+  "private": true,
+  "scripts": {
+    "build": "node build.js"
+  },
+  "devDependencies": {
+    "marked": "^15.0.0"
+  }
+}
