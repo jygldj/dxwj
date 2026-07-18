@@ -49,7 +49,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             loadArticleById(STATE.index[0].id);
         }
     } catch (error) {
-        showError('数据加载失败：' + error.message);
+        showError('哎呀，文章打了个盹儿没醒过来 😅 请点一下页面上方的"搜索"按钮，或下拉刷新一下试试~');
     }
     
     // 事件绑定
@@ -57,21 +57,38 @@ document.addEventListener('DOMContentLoaded', async function() {
 });
 
 // ============================================================
-// 数据加载
+// 数据加载（带自动重试）
 // ============================================================
+async function fetchWithRetry(url, maxRetries) {
+    if (maxRetries === undefined) maxRetries = 3;
+    for (var i = 0; i < maxRetries; i++) {
+        try {
+            var resp = await fetch(url);
+            if (resp.ok) return resp;
+            // HTTP 错误（如 404、500），不重试
+            throw new Error('HTTP ' + resp.status);
+        } catch (e) {
+            if (i < maxRetries - 1) {
+                console.log('🔄 加载重试(' + (i + 1) + '/' + maxRetries + '):', url);
+                // 等待 1 秒后重试
+                await new Promise(function(r) { setTimeout(r, 1000); });
+            } else {
+                throw e;
+            }
+        }
+    }
+}
+
 async function loadIndex() {
-    const resp = await fetch('articles-index.json?' + Date.now());
-    if (!resp.ok) throw new Error('索引文件加载失败 (HTTP ' + resp.status + ')');
+    var resp = await fetchWithRetry('articles-index.json?' + Date.now());
     STATE.index = await resp.json();
     console.log('✅ 索引加载完成：' + STATE.index.length + ' 篇文章');
 }
 
 async function loadVolume(vol) {
     if (STATE.loadedVolumes[vol]) return STATE.loadedVolumes[vol];
-    
-    const resp = await fetch('articles_v' + vol + '.json?' + Date.now());
-    if (!resp.ok) throw new Error('第' + vol + '卷加载失败 (HTTP ' + resp.status + ')');
-    const data = await resp.json();
+    var resp = await fetchWithRetry('articles_v' + vol + '.json?' + Date.now());
+    var data = await resp.json();
     STATE.loadedVolumes[vol] = data;
     console.log('✅ 第' + vol + '卷加载完成：' + data.length + ' 篇');
     return data;
@@ -200,7 +217,7 @@ async function loadArticleById(id) {
             switchTab('article');
         }
     } catch (error) {
-        contentArea.innerHTML = '<div class="loading" style="color:#c0392b;">⚠️ ' + error.message + '</div>';
+        contentArea.innerHTML = '<div style="text-align:center;padding:40px;color:#7A8B7B;"><div style="font-size:2.5em;margin-bottom:12px;">🔍</div><p>这篇文章正在赖床，请稍候刷新重试~</p></div>';
     }
 }
 
@@ -384,8 +401,12 @@ function highlightContent(html, keyword) {
 }
 
 function showError(msg) {
-    const el = document.getElementById('articleText');
-    if (el) el.innerHTML = '<div class="loading" style="color:#c0392b;">⚠️ ' + msg + '</div>';
+    var el = document.getElementById('articleText');
+    if (el) el.innerHTML = '<div style="text-align:center;padding:40px 20px;color:#7A8B7B;font-size:1.1em;">' +
+        '<div style="font-size:3em;margin-bottom:16px;">😅</div>' +
+        '<p style="margin-bottom:12px;">' + msg + '</p>' +
+        '<p style="font-size:0.85em;color:#A8A59B;">🔄 如果一直不动，试试下拉刷新或关闭网页重新打开</p>' +
+        '</div>';
 }
 
 // ============================================================
