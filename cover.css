@@ -18,17 +18,15 @@ body {
     background: var(--paper-color) fixed;
     color: var(--ink-color);
     min-height: 100vh;
-    min-height: 100dvh; /* 移动端动态视口，解决地址栏遮挡 */
     display: flex;
     justify-content: center;
     align-items: center;
-    background-image: url('https://img.zcool.cn/community/01f3fa5d18d473a801213f26e4776a.jpg@1280w_1l_2o_100sh.jpg');
+    background-image: url('https://img.zcool.cn/community/01f3fa5d18d473a801213f26e4776a.jpg@1280w_1l_2o_100sh.jpg');   
     background-size: cover;
     background-attachment: fixed;
     background-blend-mode: overlay;
     background-repeat: no-repeat;
     background-position: center;
-    padding-top: env(safe-area-inset-top, 0px); /* 刘海屏安全区 */
 }
 
 .book-cover {
@@ -41,7 +39,6 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding-top: 20px; /* 移动端防止内容被浏览器地址栏遮住 */
 }
 
 .front-cover {
@@ -58,12 +55,12 @@ body {
     flex-direction: column;
     align-items: center;
 }
-
+ 
 .author-portrait {
     width: 200px;
     height: 250px;
     margin: 0 auto 1.5rem;
-    background: url('wsf.jpg') center/cover;
+    background: url('wsf.webp')  center/cover;
     border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
     box-shadow: 0 5px 15px rgba(0,0,0,0.2);
     clip-path: ellipse(45% 50% at 50% 50%);
@@ -89,7 +86,7 @@ body {
     transform: translateY(-2px);
     box-shadow: 0 6px 8px var(--shadow-color);
 }
-
+ 
 /* 移动端优先的布局样式 */
 .links-section {
     width: 100%;
@@ -99,9 +96,9 @@ body {
     border-radius: 8px;
     box-shadow: 0 3px 10px rgba(0,0,0,0.08);
     margin-top: 1.5rem;
-    order: 3;
+    order: 3; /* 确保在移动端显示顺序 */
 }
-
+ 
 .friend-links-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -110,7 +107,7 @@ body {
     margin: 0;
     padding: 0;
 }
-
+ 
 .friend-links-grid a {
     color: var(--accent-color);
     text-decoration: none;
@@ -119,12 +116,12 @@ body {
     transition: all 0.3s;
     font-size: 0.9rem;
 }
-
+ 
 .friend-links-grid a:hover {
     color: var(--ink-color);
     border-bottom-color: var(--ink-color);
 }
-
+ 
 .links-title {
     text-align: center;
     margin-bottom: 1rem;
@@ -133,11 +130,11 @@ body {
     letter-spacing: 1px;
 }
 
-.book-cover.opened {
+.book-cover.opened   {
     transform: rotateY(-150deg);
     pointer-events: none;
 }
-
+ 
 /* 桌面端布局调整 */
 @media (min-width: 768px) {
     .front-cover {
@@ -169,7 +166,7 @@ body {
         margin: 2rem 0;
     }
 }
-
+ 
 @media (min-width: 992px) {
     .author-portrait {
         width: 280px;
