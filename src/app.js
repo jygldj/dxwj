@@ -56,38 +56,48 @@ document.addEventListener('DOMContentLoaded', async function() {
     setupEventListeners();
 });
 
+// 数据文件 URL 配置
+// jsDelivr CDN（国内速度快）优先，GitHub Pages 兜底
+var CDN_BASE = 'https://cdn.jsdelivr.net/gh/jygldj/dx@gh-pages/';
+var GITHUB_BASE = '';
+
 // ============================================================
-// 数据加载（带自动重试）
+// 数据加载（CDN 优先 + 自动重试 + GitHub 兜底）
 // ============================================================
-async function fetchWithRetry(url, maxRetries) {
-    if (maxRetries === undefined) maxRetries = 3;
-    for (var i = 0; i < maxRetries; i++) {
-        try {
-            var resp = await fetch(url);
-            if (resp.ok) return resp;
-            // HTTP 错误（如 404、500），不重试
-            throw new Error('HTTP ' + resp.status);
-        } catch (e) {
-            if (i < maxRetries - 1) {
-                console.log('🔄 加载重试(' + (i + 1) + '/' + maxRetries + '):', url);
-                // 等待 1 秒后重试
-                await new Promise(function(r) { setTimeout(r, 1000); });
-            } else {
-                throw e;
+async function fetchData(filename) {
+    // 先尝试 CDN（国内用户速度快），再尝试 GitHub Pages（兜底）
+    var urls = [
+        CDN_BASE + filename,
+        GITHUB_BASE + filename
+    ];
+    var lastErr = null;
+
+    for (var u = 0; u < urls.length; u++) {
+        for (var i = 0; i < 2; i++) {  // 每个 URL 重试 2 次
+            try {
+                var resp = await fetch(urls[u] + '?' + Date.now());
+                if (resp.ok) return resp;
+                throw new Error('HTTP ' + resp.status);
+            } catch (e) {
+                lastErr = e;
+                if (i < 1) {
+                    await new Promise(function(r) { setTimeout(r, 800); });
+                }
             }
         }
     }
+    throw lastErr;
 }
 
 async function loadIndex() {
-    var resp = await fetchWithRetry('articles-index.json?' + Date.now());
+    var resp = await fetchData('articles-index.json');
     STATE.index = await resp.json();
     console.log('✅ 索引加载完成：' + STATE.index.length + ' 篇文章');
 }
 
 async function loadVolume(vol) {
     if (STATE.loadedVolumes[vol]) return STATE.loadedVolumes[vol];
-    var resp = await fetchWithRetry('articles_v' + vol + '.json?' + Date.now());
+    var resp = await fetchData('articles_v' + vol + '.json');
     var data = await resp.json();
     STATE.loadedVolumes[vol] = data;
     console.log('✅ 第' + vol + '卷加载完成：' + data.length + ' 篇');
