@@ -155,12 +155,34 @@ let currentKeyword = '';
 let currentPreviewIndex = -1;
 let searchRunning = false;
 
+// 数据文件 URL 配置：jsDelivr CDN 优先 + GitHub Pages 兜底
+const CDN_BASE = 'https://cdn.jsdelivr.net/gh/jygldj/dx@gh-pages/';
+
+// 带重试和 CDN 兜底的数据加载
+async function fetchData(filename) {
+    const urls = [CDN_BASE + filename, filename];
+    let lastErr = null;
+    for (let u = 0; u < urls.length; u++) {
+        for (let i = 0; i < 2; i++) {
+            try {
+                const resp = await fetch(urls[u] + '?' + Date.now());
+                if (resp.ok) return resp;
+                throw new Error('HTTP ' + resp.status);
+            } catch (e) {
+                lastErr = e;
+                if (i < 1) await new Promise(r => setTimeout(r, 800));
+            }
+        }
+    }
+    throw lastErr;
+}
+
 // ============================================================
 // 初始化：加载索引
 // ============================================================
 document.addEventListener('DOMContentLoaded', async () => {
     try {
-        const resp = await fetch('articles-index.json?' + Date.now());
+        const resp = await fetchData('articles-index.json');
         articlesIndex = await resp.json();
 
         // 计算分类统计
@@ -188,7 +210,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
     } catch (e) {
-        document.getElementById('welcomeMsg').textContent = '⚠️ 文章索引加载失败：' + e.message;
+        document.getElementById('welcomeMsg').innerHTML = '😅 文章索引打了个盹儿<br><small>请下拉刷新或检查网络后重试</small>';
     }
 });
 
@@ -199,7 +221,7 @@ async function loadAllVolumes() {
     const totalVolumes = Math.ceil(articlesIndex.length / 50);
     for (let v = 1; v <= totalVolumes; v++) {
         if (!loadedVolumes[v]) {
-            const resp = await fetch('articles_v' + v + '.json?' + Date.now());
+            const resp = await fetchData('articles_v' + v + '.json');
             const data = await resp.json();
             loadedVolumes[v] = data;
         }
@@ -270,7 +292,7 @@ async function doSearch() {
         window.history.replaceState({}, '', url);
 
     } catch (e) {
-        leftPanel.innerHTML = '<div class="empty-state"><div class="icon">⚠️</div><p>搜索出错：' + e.message + '</p></div>';
+        leftPanel.innerHTML = '<div class="empty-state"><div class="icon">😅</div><p>搜索服务打了个盹儿</p><p style="font-size:0.85em;color:#A8A59B;margin-top:6px;">请下拉刷新或换个关键词试试</p></div>';
     } finally {
         searchRunning = false;
     }
