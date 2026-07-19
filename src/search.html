@@ -155,23 +155,26 @@ let currentKeyword = '';
 let currentPreviewIndex = -1;
 let searchRunning = false;
 
-// 数据文件 URL 配置：jsDelivr CDN 优先 + GitHub Pages 兜底
+// 数据文件 URL 配置：三条链路依次尝试
 const CDN_BASE = 'https://cdn.jsdelivr.net/gh/jygldj/dx@gh-pages/';
+const RAW_BASE = 'https://raw.githubusercontent.com/jygldj/dx/gh-pages/';
 
-// 带重试和 CDN 兜底的数据加载
+// 带超时和自动切换的数据加载（缩短等待时间）
 async function fetchData(filename) {
-    const urls = [CDN_BASE + filename, filename];
+    const urls = [CDN_BASE + filename, RAW_BASE + filename, filename];
     let lastErr = null;
     for (let u = 0; u < urls.length; u++) {
-        for (let i = 0; i < 2; i++) {
-            try {
-                const resp = await fetch(urls[u] + '?' + Date.now());
-                if (resp.ok) return resp;
-                throw new Error('HTTP ' + resp.status);
-            } catch (e) {
-                lastErr = e;
-                if (i < 1) await new Promise(r => setTimeout(r, 800));
-            }
+        try {
+            // 5 秒超时，避免长时间挂起
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 5000);
+            const resp = await fetch(urls[u] + '?' + Date.now(), { signal: controller.signal });
+            clearTimeout(timer);
+            if (resp.ok) return resp;
+            lastErr = new Error('HTTP ' + resp.status);
+        } catch (e) {
+            lastErr = e;
+            // 放弃前每个 URL 只试一次（快速失败）
         }
     }
     throw lastErr;

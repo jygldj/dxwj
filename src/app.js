@@ -56,34 +56,28 @@ document.addEventListener('DOMContentLoaded', async function() {
     setupEventListeners();
 });
 
-// 数据文件 URL 配置
-// jsDelivr CDN（国内速度快）优先，GitHub Pages 兜底
+// 数据文件 URL 配置：三条链路依次尝试
 var CDN_BASE = 'https://cdn.jsdelivr.net/gh/jygldj/dx@gh-pages/';
-var GITHUB_BASE = '';
+var RAW_BASE = 'https://raw.githubusercontent.com/jygldj/dx/gh-pages/';
 
 // ============================================================
-// 数据加载（CDN 优先 + 自动重试 + GitHub 兜底）
+// 数据加载（三级链路 + 5秒超时）
 // ============================================================
 async function fetchData(filename) {
-    // 先尝试 CDN（国内用户速度快），再尝试 GitHub Pages（兜底）
-    var urls = [
-        CDN_BASE + filename,
-        GITHUB_BASE + filename
-    ];
+    var urls = [CDN_BASE + filename, RAW_BASE + filename, filename];
     var lastErr = null;
-
     for (var u = 0; u < urls.length; u++) {
-        for (var i = 0; i < 2; i++) {  // 每个 URL 重试 2 次
-            try {
-                var resp = await fetch(urls[u] + '?' + Date.now());
-                if (resp.ok) return resp;
-                throw new Error('HTTP ' + resp.status);
-            } catch (e) {
-                lastErr = e;
-                if (i < 1) {
-                    await new Promise(function(r) { setTimeout(r, 800); });
-                }
-            }
+        try {
+            // 5 秒超时，避免长时间挂起
+            var controller = new AbortController();
+            var timer = setTimeout(function() { controller.abort(); }, 5000);
+            var resp = await fetch(urls[u] + '?' + Date.now(), { signal: controller.signal });
+            clearTimeout(timer);
+            if (resp.ok) return resp;
+            lastErr = new Error('HTTP ' + resp.status);
+        } catch (e) {
+            lastErr = e;
+            // 每个 URL 只试一次，快速切换
         }
     }
     throw lastErr;
