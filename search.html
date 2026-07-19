@@ -60,12 +60,15 @@ var currentResults = [];
 var currentIdx = -1;
 var loaded = false;
 
-// 带重试的 XHR 加载（比 fetch 兼容性更好）
+// 带重试的 XHR 加载（每次重试使用不同 URL 彻底绕过缓存）
 function get(url, callback) {
     var retries = 0;
+    var sep = url.indexOf('?') > -1 ? '&' : '?';
     function attempt() {
         var xhr = new XMLHttpRequest();
-        xhr.open('GET', url + '?' + Date.now(), true);
+        var ts = Date.now() + '_' + Math.floor(Math.random() * 100000);
+        xhr.open('GET', url + sep + '_t=' + ts, true);
+        xhr.timeout = 10000;
         xhr.onload = function() {
             if (xhr.status >= 200 && xhr.status < 300) callback(null, xhr.responseText);
             else if (retries < 2) { retries++; setTimeout(attempt, 1000); }
@@ -75,6 +78,10 @@ function get(url, callback) {
             if (retries < 2) { retries++; setTimeout(attempt, 1000); }
             else callback(new Error('无法连接到服务器'));
         };
+        xhr.ontimeout = function() {
+            if (retries < 2) { retries++; setTimeout(attempt, 1000); }
+            else callback(new Error('连接超时'));
+        };
         xhr.send();
     }
     attempt();
@@ -82,8 +89,14 @@ function get(url, callback) {
 
 // 初始化
 document.addEventListener('DOMContentLoaded', function() {
+    // 告知 SW 不要拦截本页面的请求
+    if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({ bypass: true, page: 'search' });
+    }
+    // 随机化参数彻底绕过 SW/浏览器缓存
+    function rnd() { return Date.now() + '_' + Math.random().toString(36).substring(2, 8); }
     // 先加载索引
-    get('articles-index.json', function(err, text) {
+    get('articles-index.json?' + rnd(), function(err, text) {
         if (err) {
             document.getElementById('msg').innerHTML = '😅 文章打了个盹儿<br><small>点"搜索"按钮或下拉刷新重试</small>';
             return;
