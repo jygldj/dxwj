@@ -23,7 +23,7 @@ body{font-family:"楷体","宋体",serif;background:#FFFEFC;color:#5A4A3F;paddin
 .result-item{padding:10px;margin-bottom:4px;border-radius:6px;cursor:pointer;border-left:3px solid transparent;background:rgba(255,255,255,0.5)}
 .result-item:hover,.result-item.active{background:#E8F1EC;border-left-color:#3A6351}
 .result-item .t{color:#3A6351;font-weight:bold;display:block}
-.result-item .m{font-size:0.8em;color:#7A8B7B;display:flex;gap:10px}
+.result-item .m{font-size:0.8em;color:#7A8B7B;display:flex;gap:10px;flex-wrap:wrap}
 .result-item .s{font-size:0.85em;color:#8A9B8B;margin-top:4px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .highlight{background:#F0E6C5;padding:0 2px;border-radius:2px}
 .loading{text-align:center;padding:30px;color:#A8A59B}
@@ -39,8 +39,8 @@ body{font-family:"楷体","宋体",serif;background:#FFFEFC;color:#5A4A3F;paddin
 <body>
 <div class="container">
 <div class="header">
-<h1>🔍 全文搜索 <span>· 道玄文集</span></h1>
-<a href="index1.html" class="back-link">← 返回</a>
+<h1>&#128269; 全文搜索 <span>· 道玄文集</span></h1>
+<a href="index1.html" class="back-link">&#8592; 返回</a>
 </div>
 <div class="search-bar">
 <input type="text" id="q" placeholder="输入关键词搜索全部文章..." autofocus>
@@ -48,63 +48,104 @@ body{font-family:"楷体","宋体",serif;background:#FFFEFC;color:#5A4A3F;paddin
 </div>
 <div id="stats">共找到 <strong id="count">0</strong> 篇相关文章</div>
 <div class="main-panels">
-<div class="left-panel" id="left"><div class="loading" id="msg">📖 正在连接知识库...</div></div>
-<div class="right-panel" id="right"><div class="empty"><div class="icon">📄</div><p>输入关键词搜索文章</p></div></div>
+<div class="left-panel" id="left"><div class="loading" id="msg">&#128218; 正在连接知识库...</div></div>
+<div class="right-panel" id="right"><div class="empty"><div class="icon">&#128196;</div><p>输入关键词搜索文章</p></div></div>
 </div></div>
+
 <script>
-// 道玄文集 - 全文搜索（大师修复版 v2.0）
+// ============================================================
+// 道玄文集 - 全文搜索（根治版 v3.0）
+// 修复：多级路径回退，自动探测数据文件位置
+// ============================================================
 var allArticles = [];
 var currentResults = [];
 var currentIdx = -1;
 var loaded = false;
-var basePath = ''; // 动态基础路径
-// 智能路径探测
-function detectBasePath() {
-    var path = window.location.pathname;
-    // 如果在 dist 目录下，或者路径包含 dist，则使用 dist/
-    if (path.includes('/dist/') || path.endsWith('/dist')) {
-        return './';
+
+// ---- 智能路径探测（多级回退） ----
+function getBasePaths() {
+    var paths = [];
+    var loc = window.location.pathname;
+    
+    // 1. 如果在 dist/ 目录下，数据在同级
+    if (loc.indexOf('/dist/') !== -1) {
+        paths.push('');
+        paths.push('../');
     }
-    // 默认尝试 dist 目录，因为构建产物通常在这里
-    return 'dist/';
-}
-// 带重试的稳健 fetch
-async function get(url) {
-    var last = null;
-    for (var i = 0; i < 3; i++) {
-        try {
-            // 添加时间戳防止缓存，手机端缓存问题严重
-            var r = await fetch(basePath + url + '?t=' + Date.now());
-            if (r.ok) return r;
-        } catch(e) { 
-            last = e; 
-            console.warn('Attempt ' + (i+1) + ' failed for ' + url);
+    
+    // 2. 如果在 src/ 目录下（GitHub Pages 直接部署 src）
+    if (loc.indexOf('/src/') !== -1) {
+        paths.push('');        // 数据在 src/ 下
+        paths.push('../dist/'); // 尝试 dist/
+        paths.push('../');      // 尝试根目录
+    }
+    
+    // 3. 如果在根目录
+    paths.push('');
+    paths.push('dist/');
+    paths.push('src/');
+    
+    // 去重
+    var seen = {};
+    var unique = [];
+    for (var i = 0; i < paths.length; i++) {
+        if (!seen[paths[i]]) {
+            seen[paths[i]] = true;
+            unique.push(paths[i]);
         }
-        if (i < 2) await new Promise(function(r) { setTimeout(r, 800); });
     }
-    throw last || new Error('加载失败');
+    return unique;
 }
-// 初始化
+
+// ---- 带多路径回退的 fetch ----
+var BASE_PATH = '';
+
+async function tryFetch(url) {
+    var paths = getBasePaths();
+    var lastErr = null;
+    
+    for (var p = 0; p < paths.length; p++) {
+        var fullUrl = paths[p] + url;
+        for (var attempt = 0; attempt < 2; attempt++) {
+            try {
+                var r = await fetch(fullUrl + '?t=' + Date.now());
+                if (r.ok) {
+                    BASE_PATH = paths[p];  // 记住成功的路径
+                    console.log('✅ 数据路径探测成功: ' + BASE_PATH);
+                    return r;
+                }
+                if (r.status === 404) break; // 404 不重试，直接换路径
+            } catch(e) {
+                lastErr = e;
+            }
+            if (attempt < 1) await new Promise(function(r) { setTimeout(r, 500); });
+        }
+    }
+    throw lastErr || new Error('所有路径均无法加载 ' + url);
+}
+
+// ---- 初始化 ----
 document.addEventListener('DOMContentLoaded', async function() {
-    basePath = detectBasePath();
-    console.log('Base path detected:', basePath);
+    var msgEl = document.getElementById('msg');
     
     try {
-        document.getElementById('msg').innerHTML = '🔄 正在加载文章索引...';
-        var resp = await get('articles-index.json');
+        msgEl.innerHTML = '&#128269; 正在探测数据路径...';
+        
+        // 1. 加载索引
+        var resp = await tryFetch('articles-index.json');
         var idx = await resp.json();
         
         allArticles = [];
         var total = Math.ceil(idx.length / 50);
-        document.getElementById('msg').innerHTML = '📚 索引已获取，正在分卷加载 (' + total + '卷)...';
+        msgEl.innerHTML = '&#128218; 索引已获取，加载文章数据 (' + total + '卷)...';
         
+        // 2. 分卷加载
         for (var v = 1; v <= total; v++) {
-            document.getElementById('msg').innerHTML = '⏳ 加载第 ' + v + '/' + total + ' 卷...';
-            var vr = await get('articles_v' + v + '.json');
+            msgEl.innerHTML = '&#9203; 加载第 ' + v + '/' + total + ' 卷...';
+            var vr = await tryFetch('articles_v' + v + '.json');
             var vd = await vr.json();
             for (var i = 0; i < vd.length; i++) {
                 var a = vd[i];
-                // 安全提取纯文本用于搜索
                 var div = document.createElement('div');
                 div.innerHTML = a.content;
                 a.raw = div.textContent || div.innerText || '';
@@ -112,27 +153,30 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
         }
         
-        // 分类统计
+        // 3. 分类统计
         var stats = {'诗':0,'词':0,'散文':0,'其它':0};
         for (var i = 0; i < allArticles.length; i++) {
             var c = allArticles[i].category;
             if (stats[c] !== undefined) stats[c]++; else stats['其它']++;
         }
         
-        document.getElementById('msg').innerHTML =
-            '✅ 就绪！共 ' + allArticles.length + ' 篇文章<br>' +
-            '<small style="color:#7A8B7B">诗 ' + stats['诗'] + ' · 词 ' + stats['词'] + ' · 散文 ' + stats['散文'] + ' · 其他 ' + stats['其它'] + '</small>';
+        msgEl.innerHTML =
+            '&#9989; 就绪！共 ' + allArticles.length + ' 篇文章<br>' +
+            '<small style="color:#7A8B7B">诗 ' + stats['诗'] + ' · 词 ' + stats['词'] + ' · 散文 ' + stats['散文'] + ' · 其他 ' + stats['其它'] + '</small>' +
+            '<br><small style="color:#A8A59B">数据路径: ' + BASE_PATH + '</small>';
         loaded = true;
         
-        // 支持 URL 参数搜索
+        // 支持 URL 参数 ?q=xxx
         var p = new URLSearchParams(window.location.search);
         var q = p.get('q');
         if (q) { document.getElementById('q').value = q; doSearch(); }
         
     } catch(e) {
-        console.error(e);
-        document.getElementById('msg').innerHTML =
-            '😅 连接知识库失败<br><small>请检查网络或刷新页面重试</small><br><small style="color:#e74c3c">' + e.message + '</small>';
+        console.error('初始化失败:', e);
+        msgEl.innerHTML =
+            '&#9888;&#65039; 文章索引加载失败<br>' +
+            '<small style="color:#e74c3c">' + (e.message || '未知错误') + '</small><br>' +
+            '<small>请确保 articles-index.json 和 articles_v*.json 文件已部署</small>';
     }
     
     // 回车搜索
@@ -140,40 +184,41 @@ document.addEventListener('DOMContentLoaded', async function() {
         if (e.key === 'Enter') { e.preventDefault(); doSearch(); }
     });
 });
-// 搜索逻辑
+
+// ---- 搜索 ----
 function doSearch() {
     var kw = document.getElementById('q').value.trim();
     var left = document.getElementById('left');
     var right = document.getElementById('right');
     
     if (!kw) {
-        left.innerHTML = '<div class="empty"><div class="icon">📖</div><p>输入关键词搜索全部文章</p></div>';
-        right.innerHTML = '<div class="empty"><div class="icon">📄</div><p>输入关键词搜索文章</p></div>';
+        left.innerHTML = '<div class="empty"><div class="icon">&#128218;</div><p>输入关键词搜索全部文章</p></div>';
+        right.innerHTML = '<div class="empty"><div class="icon">&#128196;</div><p>输入关键词搜索文章</p></div>';
         document.getElementById('stats').style.display = 'none';
         return;
     }
     
     if (!loaded) {
-        left.innerHTML = '<div class="loading">🔍 文章索引正在加载，请稍后再搜...</div>';
+        left.innerHTML = '<div class="loading">&#128269; 文章索引正在加载，请稍后再搜...</div>';
         return;
     }
     
-    left.innerHTML = '<div class="loading">🔍 正在全库检索...</div>';
+    left.innerHTML = '<div class="loading">&#128269; 正在全库检索...</div>';
     document.getElementById('stats').style.display = 'none';
-    // 使用 setTimeout 让 UI 有机会渲染 loading 状态
+    
     setTimeout(function() {
         var lk = kw.toLowerCase();
         currentResults = [];
         
         for (var i = 0; i < allArticles.length; i++) {
             var a = allArticles[i];
-            // 在标题、分类、日期和正文中搜索
             var txt = (a.title + ' ' + a.category + ' ' + a.date + ' ' + a.raw).toLowerCase();
             if (txt.indexOf(lk) > -1) currentResults.push(a);
         }
         
         document.getElementById('stats').style.display = 'block';
         document.getElementById('count').textContent = currentResults.length;
+        
         var html = '';
         for (var i = 0; i < currentResults.length; i++) {
             var a = currentResults[i];
@@ -185,28 +230,29 @@ function doSearch() {
                 '</div>';
         }
         
-        left.innerHTML = html || '<div class="empty"><div class="icon">🔍</div><p>未找到包含 "<b>' + kw + '</b>" 的文章</p></div>';
+        left.innerHTML = html || '<div class="empty"><div class="icon">&#128269;</div><p>未找到包含 "<b>' + kw + '</b>" 的文章</p></div>';
+        
         if (currentResults.length > 0) { currentIdx = 0; showPreview(0); }
-        else { currentIdx = -1; right.innerHTML = '<div class="empty"><div class="icon">🔍</div><p>未找到文章</p></div>'; }
+        else { currentIdx = -1; right.innerHTML = '<div class="empty"><div class="icon">&#128269;</div><p>未找到文章</p></div>'; }
     }, 50);
 }
+
 function showPreview(i) {
     if (i < 0 || i >= currentResults.length) return;
     currentIdx = i;
     var a = currentResults[i];
     var content = a.content;
     
-    // 高亮关键词
     var kw = document.getElementById('q').value.trim().toLowerCase();
     if (kw) {
         var escapedKw = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         content = content.replace(new RegExp('(' + escapedKw + ')', 'gi'), '<span class="highlight">$1</span>');
     }
     
-    // 更新左侧选中状态
     var items = document.querySelectorAll('.result-item');
     for (var j = 0; j < items.length; j++) items[j].className = items[j].className.replace(' active', '');
     if (items[i]) items[i].className += ' active';
+    
     document.getElementById('right').innerHTML =
         '<div style="padding:8px">' +
         '<h1 style="font-size:1.6em;color:#3A6351;border-left:5px solid #7A8B7B;padding-left:12px;margin-bottom:8px;font-weight:normal">' + hl(a.title, kw) + '</h1>' +
@@ -214,17 +260,19 @@ function showPreview(i) {
         '<span>#' + a.id + '</span><span>分类：' + a.category + '</span><span>日期：' + a.date + '</span></div>' +
         '<div style="font-size:17px;line-height:1.9">' + content + '</div>' +
         '<div style="margin-top:12px;padding-top:8px;border-top:1px solid #E8EDEA;display:flex;justify-content:space-between;font-size:0.9em;color:#7A8B7B">' +
-        '<a href="#" style="color:' + (i > 0 ? '#3A6351' : '#C7D8D2') + ';text-decoration:none" ' + (i > 0 ? 'onclick="event.preventDefault();showPreview(' + (i-1) + ')"' : '') + '>← 上一篇</a>' +
+        '<a href="#" style="color:' + (i > 0 ? '#3A6351' : '#C7D8D2') + ';text-decoration:none" ' + (i > 0 ? 'onclick="event.preventDefault();showPreview(' + (i-1) + ')"' : '') + '>&#8592; 上一篇</a>' +
         '<span>' + (i+1) + ' / ' + currentResults.length + '</span>' +
-        '<a href="#" style="color:' + (i < currentResults.length-1 ? '#3A6351' : '#C7D8D2') + ';text-decoration:none" ' + (i < currentResults.length-1 ? 'onclick="event.preventDefault();showPreview(' + (i+1) + ')"' : '') + '>下一篇 →</a>' +
+        '<a href="#" style="color:' + (i < currentResults.length-1 ? '#3A6351' : '#C7D8D2') + ';text-decoration:none" ' + (i < currentResults.length-1 ? 'onclick="event.preventDefault();showPreview(' + (i+1) + ')"' : '') + '>下一篇 &#8594;</a>' +
         '</div></div>';
     document.getElementById('right').scrollTop = 0;
 }
+
 function hl(text, kw) {
     if (!kw || !text) return text;
     var escapedKw = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     return text.replace(new RegExp('(' + escapedKw + ')', 'gi'), '<span class="highlight">$1</span>');
 }
+
 function getSnippet(text, kw) {
     if (!kw) return (text || '').substring(0, 80);
     var idx = (text || '').toLowerCase().indexOf(kw);
