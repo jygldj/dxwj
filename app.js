@@ -56,15 +56,15 @@ document.addEventListener('DOMContentLoaded', async function() {
     setupEventListeners();
 });
 
-// 数据文件 URL 配置：三条链路依次尝试
+// 数据文件 URL 配置：同源优先（数据最新），CDN 和 RAw 做兜底
 var CDN_BASE = 'https://cdn.jsdelivr.net/gh/jygldj/dx@gh-pages/';
 var RAW_BASE = 'https://raw.githubusercontent.com/jygldj/dx/gh-pages/';
 
 // ============================================================
-// 数据加载（三级链路 + 5秒超时）
+// 数据加载（同源优先 + CDN/RAW 兜底 + 5秒超时）
 // ============================================================
 async function fetchData(filename) {
-    var urls = [CDN_BASE + filename, RAW_BASE + filename, filename];
+    var urls = [filename, CDN_BASE + filename, RAW_BASE + filename];
     var lastErr = null;
     for (var u = 0; u < urls.length; u++) {
         try {
