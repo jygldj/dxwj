@@ -55,252 +55,207 @@ body{font-family:"楷体","宋体",serif;background:#FFFEFC;color:#5A4A3F;paddin
 
 <script>
 // ============================================================
-// 全文搜索 - 内嵌版 (整合所有逻辑，减少外部依赖)
+// 道玄文集 全文搜索 - dx 架构完整适配版
+// 数据源：articles-index.json + articles_v1.json ...
 // ============================================================
 
-// ---------- 全局变量 ----------
-let articles = [];
-let currentResults = [];
-let currentKeyword = '';
-let currentPreviewIndex = -1;
+// ---------- 全局 ----------
+var allArticles = [];
+var currentResults = [];
+var currentKeyword = '';
+var currentIdx = -1;
+var loaded = false;
 
-// ---------- 解析函数 (从 articles1.js 中提取数据) ----------
-function parseArticlesFromTxt(text) {
-    // 移除 JavaScript 包装
-    let clean = text.replace(/^const\s+articlesData\s*=\s*`/, '').replace(/`\s*;?\s*$/, '');
-    // 按分隔符分割文章
-    const separator = /[─═━─=※§]{4,}|\n{2,}[*#]{3,}\n{2,}/;
-    const docs = clean.split(separator);
-    const results = [];
-    let id = 1;
-    for (const doc of docs) {
-        const trimmed = doc.trim();
-        if (!trimmed) continue;
-        const parsed = parseSingle(trimmed, id++);
-        if (parsed) results.push(parsed);
-    }
-    return results;
+// ---------- 多源加载（复用 app.js 策略） ----------
+var CDN_BASE = 'https://cdn.jsdelivr.net/gh/jygldj/dx@gh-pages/';
+var RAW_BASE = 'https://raw.githubusercontent.com/jygldj/dx/gh-pages/';
+
+function fetchWithTimeout(url) {
+    return new Promise(function(resolve, reject) {
+        var ctrl = new AbortController();
+        var timer = setTimeout(function() { ctrl.abort(); reject(new Error('超时')); }, 8000);
+        fetch(url + '?' + Date.now(), { signal: ctrl.signal })
+            .then(function(r) { clearTimeout(timer); if (r.ok) resolve(r); else reject(new Error('HTTP ' + r.status)); })
+            .catch(function(e) { clearTimeout(timer); reject(e); });
+    });
 }
 
-function parseSingle(text, id) {
-    const lines = text.split('\n');
-    if (lines.length < 2) return null;
-    let title = lines[0].trim().replace(/^[《\s]+|[》\s]+$/g, '');
-    const meta = lines[1].trim();
-    let category = '其它', date = '未标注';
-    // 尝试解析 "分类｜日期" 或 "分类|日期"
-    const match = meta.match(/^([^｜|]+)[｜|]\s*(.*)$/);
-    if (match) {
-        const raw = match[1].trim();
-        if (/诗|绝|律/.test(raw)) category = '诗';
-        else if (/词|令|引/.test(raw)) category = '词';
-        else if (/散文|赋|记/.test(raw)) category = '散文';
-        else category = raw;
-        date = match[2].trim() || '未标注';
-    }
-    // 提取正文 (从第3行开始，直到遇到注释标记)
-    let contentLines = [], notes = [], inNotes = false;
-    for (let i = 2; i < lines.length; i++) {
-        const line = lines[i];
-        const trimmed = line.trim();
-        if (!inNotes && /^(注|注释|附|附记|附注)[：:]/.test(trimmed)) {
-            inNotes = true;
-            const noteContent = line.replace(/^(注|注释|附|附记|附注)[：:]/, '').trim();
-            if (noteContent) notes.push(noteContent);
-            continue;
-        }
-        if (inNotes) {
-            if (trimmed) notes.push(trimmed);
-        } else {
-            contentLines.push(line);
-        }
-    }
-    // 构建HTML内容 (保留段落)
-    let content = contentLines.join('\n').replace(/\n/g, '<br>');
-    const paragraphs = content.split(/<br>\s*<br>/);
-    if (paragraphs.length > 1) {
-        content = paragraphs.map(p => '<p>' + p.trim() + '</p>').join('');
-    } else {
-        content = '<p>' + content + '</p>';
-    }
-    if (notes.length > 0) {
-        content += `<p>注：</p><p>${notes.join(' ')}</p>`;
-    }
-    return {
-        id, title, category, date,
-        content: content,
-        raw: contentLines.join('\n') // 纯文本用于搜索
-    };
-}
-
-// ---------- 加载数据 ----------
-async function loadData() {
-    const left = document.getElementById('left');
-    try {
-        // 尝试从上级目录加载 articles1.js (根据实际部署路径调整)
-        const resp = await fetch('../articles1.js?t=' + Date.now());
-        if (!resp.ok) throw new Error('HTTP ' + resp.status);
-        let text = await resp.text();
-        // 去除BOM
-        if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
-        articles = parseArticlesFromTxt(text);
-        console.log('✅ 已加载', articles.length, '篇文章');
-        left.innerHTML = `<div class="empty"><div class="icon">📖</div><p>共 ${articles.length} 篇文章，输入关键词搜索</p></div>`;
-        // 如果URL有?q=关键词，自动搜索
-        const params = new URLSearchParams(window.location.search);
-        const q = params.get('q');
-        if (q) {
-            document.getElementById('q').value = q;
-            doSearch();
-        }
-    } catch (e) {
-        console.warn('加载失败，尝试从当前目录加载...', e);
+async function loadData(filename) {
+    var urls = [filename, CDN_BASE + filename, RAW_BASE + filename];
+    var lastErr = null;
+    for (var i = 0; i < urls.length; i++) {
         try {
-            // 如果上级目录没有，尝试当前目录
-            const resp = await fetch('articles1.js?t=' + Date.now());
-            if (!resp.ok) throw new Error('HTTP ' + resp.status);
-            let text = await resp.text();
-            if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
-            articles = parseArticlesFromTxt(text);
-            console.log('✅ 已从当前目录加载', articles.length, '篇文章');
-            left.innerHTML = `<div class="empty"><div class="icon">📖</div><p>共 ${articles.length} 篇文章，输入关键词搜索</p></div>`;
-            const params = new URLSearchParams(window.location.search);
-            const q = params.get('q');
-            if (q) {
-                document.getElementById('q').value = q;
-                doSearch();
+            var r = await fetchWithTimeout(urls[i]);
+            return await r.json();
+        } catch (e) { lastErr = e; }
+    }
+    throw lastErr;
+}
+
+// ---------- 加载全部 ----------
+async function loadAll() {
+    var left = document.getElementById('left');
+    try {
+        // 1. 加载索引
+        var idx = await loadData('articles-index.json');
+        var totalVols = Math.ceil(idx.length / 50);
+
+        // 2. 逐卷加载
+        for (var v = 1; v <= totalVols; v++) {
+            var volData = await loadData('articles_v' + v + '.json');
+            for (var j = 0; j < volData.length; j++) {
+                var a = volData[j];
+                var div = document.createElement('div');
+                div.innerHTML = a.content;
+                a.raw = div.textContent || '';
+                allArticles.push(a);
             }
-        } catch (e2) {
-            console.error('加载失败:', e2);
-            left.innerHTML = `<div class="empty" style="color:#c0392b;"><div class="icon">⚠️</div><p>数据加载失败，请检查网络或 articles1.js 文件是否存在</p></div>`;
         }
+
+        // 3. 按 id 排序
+        allArticles.sort(function(a, b) { return a.id - b.id; });
+        loaded = true;
+
+        // 4. 统计
+        var stats = { '诗':0, '词':0, '散文':0, '其它':0 };
+        for (var i = 0; i < allArticles.length; i++) {
+            var c = allArticles[i].category;
+            if (stats[c] !== undefined) stats[c]++; else stats['其它']++;
+        }
+        left.innerHTML = '<div class="empty"><div class="icon">📖</div><p>共 ' + allArticles.length + ' 篇文章，诗 ' + stats['诗'] + ' 篇，词 ' + stats['词'] + ' 篇，散文 ' + stats['散文'] + ' 篇，其他 ' + stats['其它'] + ' 篇</p></div>';
+
+        // 5. URL 参数自动搜索
+        var params = new URLSearchParams(window.location.search);
+        var q = params.get('q');
+        if (q) { document.getElementById('q').value = q; doSearch(); }
+    } catch (e) {
+        left.innerHTML = '<div class="empty" style="color:#c0392b;"><div class="icon">⚠️</div><p>数据加载失败</p><p style="font-size:0.85em;margin-top:8px;">' + e.message + '</p></div>';
     }
 }
 
-// ---------- 搜索与渲染 ----------
+// ---------- 搜索 ----------
 function doSearch() {
-    const keyword = document.getElementById('q').value.trim();
-    currentKeyword = keyword;
-    const left = document.getElementById('left');
-    const right = document.getElementById('right');
-    const stats = document.getElementById('stats');
+    var kw = document.getElementById('q').value.trim();
+    currentKeyword = kw;
+    var left = document.getElementById('left');
+    var right = document.getElementById('right');
 
-    if (!keyword) {
-        left.innerHTML = `<div class="empty"><div class="icon">📖</div><p>共 ${articles.length} 篇文章，输入关键词搜索</p></div>`;
-        right.innerHTML = `<div class="empty"><div class="icon">📄</div><p>输入关键词搜索文章</p></div>`;
-        stats.style.display = 'none';
+    if (!kw) {
+        var stats = { '诗':0, '词':0, '散文':0, '其它':0 };
+        for (var i = 0; i < allArticles.length; i++) {
+            var c = allArticles[i].category;
+            if (stats[c] !== undefined) stats[c]++; else stats['其它']++;
+        }
+        left.innerHTML = '<div class="empty"><div class="icon">📖</div><p>共 ' + allArticles.length + ' 篇文章，诗 ' + stats['诗'] + ' 篇，词 ' + stats['词'] + ' 篇，散文 ' + stats['散文'] + ' 篇，其他 ' + stats['其它'] + ' 篇</p></div>';
+        right.innerHTML = '<div class="empty"><div class="icon">📄</div><p>输入关键词搜索文章</p></div>';
+        document.getElementById('stats').style.display = 'none';
         return;
     }
 
-    const lower = keyword.toLowerCase();
-    currentResults = articles.filter(a => 
-        a.title.toLowerCase().includes(lower) ||
-        a.category.toLowerCase().includes(lower) ||
-        a.date.includes(keyword) ||
-        a.raw.toLowerCase().includes(lower)
-    );
+    if (!loaded) {
+        left.innerHTML = '<div class="loading">⏳ 文章索引正在加载，请稍后...</div>';
+        return;
+    }
 
-    stats.style.display = 'block';
+    var lk = kw.toLowerCase();
+    currentResults = [];
+    for (var i = 0; i < allArticles.length; i++) {
+        var a = allArticles[i];
+        var txt = (a.title + ' ' + a.category + ' ' + a.date + ' ' + a.raw).toLowerCase();
+        if (txt.indexOf(lk) > -1) currentResults.push(a);
+    }
+
+    document.getElementById('stats').style.display = 'block';
     document.getElementById('count').textContent = currentResults.length;
 
     if (currentResults.length === 0) {
-        left.innerHTML = `<div class="empty"><div class="icon">🔍</div><p>未找到包含 “${keyword}” 的文章</p></div>`;
-        right.innerHTML = `<div class="empty"><div class="icon">📄</div><p>未找到匹配结果</p></div>`;
+        left.innerHTML = '<div class="empty"><div class="icon">🔍</div><p>未找到包含 "<b>' + kw + '</b>" 的文章</p></div>';
+        right.innerHTML = '<div class="empty"><div class="icon">📄</div><p>未找到匹配结果</p></div>';
         return;
     }
 
-    // 渲染左列表
-    let html = '';
-    currentResults.forEach((a, idx) => {
-        const globalIdx = articles.indexOf(a) + 1;
-        const snippet = getSnippet(a.raw, keyword);
-        const count = countMatches(a.raw, keyword);
-        html += `<div class="result-item" onclick="selectResult(${idx})">
-            <span class="t">${highlight(a.title, keyword)}</span>
-            <div class="m"><span>#${globalIdx}</span><span>${a.category}</span><span>${a.date}</span></div>
-            <div class="s">${snippet}</div>
-            <div class="c">匹配 ${count} 处</div>
-        </div>`;
-    });
-    left.innerHTML = html;
-
-    // 默认选中第一个
-    currentPreviewIndex = 0;
-    renderPreview(0);
-}
-
-function selectResult(idx) {
-    if (idx < 0 || idx >= currentResults.length) return;
-    currentPreviewIndex = idx;
-    // 更新高亮
-    document.querySelectorAll('.result-item').forEach((el, i) => {
-        el.classList.toggle('active', i === idx);
-    });
-    renderPreview(idx);
-}
-
-function renderPreview(idx) {
-    const a = currentResults[idx];
-    const globalIdx = articles.indexOf(a) + 1;
-    const right = document.getElementById('right');
-    let content = a.content;
-    if (currentKeyword) {
-        content = highlight(content, currentKeyword);
+    var html = '';
+    for (var i = 0; i < currentResults.length; i++) {
+        var a = currentResults[i];
+        html += '<div class="result-item" onclick="showPreview(' + i + ')">' +
+            '<span class="t">' + hl(a.title, lk) + '</span>' +
+            '<div class="m"><span>#' + a.id + '</span><span>' + a.category + '</span><span>' + a.date + '</span></div>' +
+            '<div class="s">' + getSnippet(a.raw, lk) + '</div>' +
+            '<div class="c">匹配 ' + countMatches(a.raw, lk) + ' 处</div>' +
+            '</div>';
     }
-    right.innerHTML = `
-        <div>
-            <h2 style="border-left:5px solid #7A8B7B;padding-left:12px;color:#3A6351;font-weight:normal;">${highlight(a.title, currentKeyword)}</h2>
-            <div style="font-size:0.9em;color:#7A8B7B;margin:4px 0 12px 0;">
-                <span>#${globalIdx}</span> · <span>${a.category}</span> · <span>${a.date}</span>
-            </div>
-            <div style="font-size:17px;line-height:1.9;">${content}</div>
-            <div style="margin-top:16px;padding-top:12px;border-top:1px solid #E8EDEA;display:flex;justify-content:space-between;font-size:0.9em;">
-                <a href="#" ${idx===0?'style=visibility:hidden':''} onclick="event.preventDefault();selectResult(${idx-1})">← 上一篇</a>
-                <span>${idx+1} / ${currentResults.length}</span>
-                <a href="#" ${idx===currentResults.length-1?'style=visibility:hidden':''} onclick="event.preventDefault();selectResult(${idx+1})">下一篇 →</a>
-            </div>
-        </div>
-    `;
+    left.innerHTML = html;
+    currentIdx = 0;
+    showPreview(0);
+}
+
+// ---------- 预览 ----------
+function showPreview(idx) {
+    if (idx < 0 || idx >= currentResults.length) return;
+    currentIdx = idx;
+    var a = currentResults[idx];
+    var right = document.getElementById('right');
+
+    var content = a.content;
+    var kw = currentKeyword;
+    if (kw) {
+        var regex = new RegExp('(' + kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
+        content = content.replace(regex, '<span class="highlight">$1</span>');
+    }
+
+    // 更新高亮
+    var items = document.querySelectorAll('.result-item');
+    for (var j = 0; j < items.length; j++) items[j].className = items[j].className.replace(' active', '');
+    if (items[idx]) items[idx].className += ' active';
+
+    right.innerHTML =
+        '<div style="padding:4px">' +
+        '<h1 style="font-size:1.6em;color:#3A6351;border-left:5px solid #7A8B7B;padding-left:12px;margin-bottom:8px;font-weight:normal">' + hl(a.title, kw) + '</h1>' +
+        '<div style="font-size:0.9em;color:#7A8B7B;display:flex;gap:12px;margin-bottom:12px">' +
+        '<span>#' + a.id + '</span><span>分类：' + a.category + '</span><span>日期：' + a.date + '</span></div>' +
+        '<div style="font-size:17px;line-height:1.9">' + content + '</div>' +
+        '<div style="margin-top:16px;padding-top:12px;border-top:1px solid #E8EDEA;display:flex;justify-content:space-between;font-size:0.9em;color:#7A8B7B">' +
+        '<a href="#" style="color:' + (idx > 0 ? '#3A6351' : '#C7D8D2') + ';text-decoration:none"' + (idx > 0 ? ' onclick="event.preventDefault();showPreview(' + (idx-1) + ')"' : '') + '>← 上一篇</a>' +
+        '<span>' + (idx+1) + ' / ' + currentResults.length + '</span>' +
+        '<a href="#" style="color:' + (idx < currentResults.length-1 ? '#3A6351' : '#C7D8D2') + ';text-decoration:none"' + (idx < currentResults.length-1 ? ' onclick="event.preventDefault();showPreview(' + (idx+1) + ')"' : '') + '>下一篇 →</a>' +
+        '</div></div>';
     right.scrollTop = 0;
 }
 
-// ---------- 辅助函数 ----------
-function highlight(text, keyword) {
-    if (!keyword || !text) return text;
-    const regex = new RegExp(`(${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+// ---------- 辅助 ----------
+function hl(text, kw) {
+    if (!kw || !text) return text;
+    var regex = new RegExp('(' + kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
     return text.replace(regex, '<span class="highlight">$1</span>');
 }
 
-function getSnippet(text, keyword) {
-    const lower = text.toLowerCase();
-    const kw = keyword.toLowerCase();
-    const idx = lower.indexOf(kw);
-    if (idx === -1) return highlight(text.substring(0, 120) + '...', keyword);
-    const start = Math.max(0, idx - 20);
-    const end = Math.min(text.length, idx + kw.length + 40);
-    let s = text.substring(start, end);
+function getSnippet(text, kw) {
+    if (!kw) return (text || '').substring(0, 80) + '...';
+    var idx = (text || '').toLowerCase().indexOf(kw);
+    if (idx < 0) return (text || '').substring(0, 80) + '...';
+    var start = Math.max(0, idx - 15);
+    var end = Math.min(text.length, idx + kw.length + 30);
+    var s = text.substring(start, end);
     if (start > 0) s = '...' + s;
-    if (end < text.length) s = s + '...';
-    return highlight(s, keyword);
+    if (end < text.length) s += '...';
+    return hl(s, kw);
 }
 
-function countMatches(text, keyword) {
-    if (!keyword) return 0;
-    const regex = new RegExp(keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-    const m = text.match(regex);
+function countMatches(text, kw) {
+    if (!kw || !text) return 0;
+    var regex = new RegExp(kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+    var m = text.match(regex);
     return m ? m.length : 0;
 }
 
-// ---------- 初始化 ----------
+// ---------- 启动 ----------
 document.addEventListener('DOMContentLoaded', function() {
-    loadData();
+    loadAll();
     document.getElementById('q').addEventListener('keydown', function(e) {
         if (e.key === 'Enter') { e.preventDefault(); doSearch(); }
     });
-    // 自动聚焦
-    setTimeout(() => document.getElementById('q').focus(), 300);
+    setTimeout(function() { document.getElementById('q').focus(); }, 300);
 });
 </script>
-
 </body>
 </html>
