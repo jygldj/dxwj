@@ -203,7 +203,7 @@ function renderBodyToHtml(bodyLines, category) {
     // 检测并处理二级标题 (##)
     const h2Match = trimmed.match(/^##\s+(.*)/);
     if (h2Match) {
-      html += `<h2 style="font-size:1.5em; margin:1.2em 0 0.5em 0; color:#3A6351; border-bottom:1px solid #D1D9D9; padding-bottom:0.3em; font-weight:normal;">${h2Match[1]}</h2>\n`;
+      html += `<h2 style="font-size:1.5em; margin:1.2em 0 0.5em 0; color:#3A6351;  padding-bottom:0.3em; font-weight:normal;">${h2Match[1]}</h2>\n`;
       continue;
     }
 
