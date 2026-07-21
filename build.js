@@ -165,19 +165,28 @@ function renderBodyToHtml(bodyLines, category) {
 
   // 处理正文部分
   let html = '';
-
-  // 如果正文中包含大量空行分隔，按段落处理
   const paragraphs = [];
   let currentPara = [];
 
   for (const line of contentPieces) {
     const trimmed = line.trim();
+    // 检测标题行：以 ## 或 ### 开头
+    if (/^#{2,3}\s+/.test(trimmed)) {
+      // 如果当前有积累的段落，先保存
+      if (currentPara.length > 0) {
+        paragraphs.push(currentPara.join('\n'));
+        currentPara = [];
+      }
+      // 将标题行作为独立的特殊段落
+      paragraphs.push(trimmed);
+      continue;
+    }
+
     if (!trimmed) {
       if (currentPara.length > 0) {
         paragraphs.push(currentPara.join('\n'));
         currentPara = [];
       }
-      // 连续空行也保留一个段落分隔
       continue;
     }
     currentPara.push(line);
@@ -190,6 +199,20 @@ function renderBodyToHtml(bodyLines, category) {
   for (const para of paragraphs) {
     const trimmed = para.trim();
     if (!trimmed) continue;
+
+    // 检测并处理二级标题 (##)
+    const h2Match = trimmed.match(/^##\s+(.*)/);
+    if (h2Match) {
+      html += `<h2 style="font-size:1.5em; margin:1.2em 0 0.5em 0; color:#3A6351; border-bottom:1px solid #D1D9D9; padding-bottom:0.3em; font-weight:normal;">${h2Match[1]}</h2>\n`;
+      continue;
+    }
+
+    // 检测并处理三级标题 (###)
+    const h3Match = trimmed.match(/^###\s+(.*)/);
+    if (h3Match) {
+      html += `<h3 style="font-size:1.2em; margin:1em 0 0.3em 0; color:#4A7B6B; font-weight:normal;">${h3Match[1]}</h3>\n`;
+      continue;
+    }
 
     // 判断是否为诗词标题行（被《》包裹且单独一行）
     if (/^《.*》$/.test(trimmed)) {
@@ -217,7 +240,6 @@ function renderBodyToHtml(bodyLines, category) {
 
     // 提取注释正文
     const noteTexts = noteLines.map(l => l.trim()).filter(Boolean);
-    // 第一行可能包含"注："前缀，去掉它
     noteTexts[0] = noteTexts[0].replace(/^(注|注释|附|附记|附注)[：:]\s*/, '');
 
     html += `<div class="annotation">`;
